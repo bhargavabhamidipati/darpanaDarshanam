@@ -7,25 +7,29 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Movie Share App</h1>
+  <h1>🎬 Movie Share App</h1>
 
-  <!-- Local Video -->
-  <div id="video-container">
-    <video id="localVideo" autoplay muted></video>
+  <!-- Video Section -->
+  <div id="video-section">
+    <div id="video-container">
+      <video id="localVideo" autoplay muted></video>
+    </div>
+    <div id="remoteVideos" style="display:none;"></div>
   </div>
 
   <!-- Buttons -->
-  <button id="shareScreen">Share Screen</button>
-  <button id="viewStream">View Shared Screen</button>
+  <div id="buttons">
+    <button id="shareScreen" class="btn">Share Screen</button>
+    <button id="viewStream" class="btn">View Shared Screen</button>
+  </div>
 
-  <!-- Remote videos will appear here -->
-  <div id="remoteVideos" style="display:none;"></div>
-
-  <!-- Chat -->
+  <!-- Chat Section -->
   <div id="chat-container">
     <div id="messages"></div>
-    <input type="text" id="chatInput" placeholder="Type a message...">
-    <button id="sendBtn">Send</button>
+    <div id="chat-input-area">
+      <input type="text" id="chatInput" placeholder="Type a message...">
+      <button id="sendBtn" class="btn">Send</button>
+    </div>
   </div>
 
   <!-- Firebase SDK -->

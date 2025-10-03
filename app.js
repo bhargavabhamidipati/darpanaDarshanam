@@ -24,6 +24,7 @@ const messages = document.getElementById('messages');
 let localStream;
 let peers = {};
 const roomId = 'defaultRoom';
+const socketId = Math.floor(Math.random() * 1000000);
 
 // Initialize local microphone stream
 async function initLocalStream() {
@@ -38,37 +39,26 @@ shareBtn.onclick = async () => {
     const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
     const combinedStream = new MediaStream();
 
-    // Add microphone tracks
     localStream.getAudioTracks().forEach(track => combinedStream.addTrack(track));
-
-    // Add screen tracks (video + audio)
     screenStream.getTracks().forEach(track => combinedStream.addTrack(track));
 
-    // Update local video
     localVideo.srcObject = combinedStream;
 
-    // Replace tracks in all peer connections
     for (let peerId in peers) {
       const pc = peers[peerId];
-
-      // Replace audio
       const audioSender = pc.getSenders().find(s => s.track.kind === 'audio');
       if (audioSender) audioSender.replaceTrack(combinedStream.getAudioTracks()[0]);
-
-      // Replace video
       const videoSender = pc.getSenders().find(s => s.track.kind === 'video');
       if (videoSender) videoSender.replaceTrack(combinedStream.getVideoTracks()[0]);
     }
 
-    // Update localStream reference
     localStream = combinedStream;
-
   } catch (err) {
     console.error("Error sharing screen:", err);
   }
 };
 
-// View Stream Button – toggle remote videos
+// Toggle remote videos visibility
 viewStreamBtn.onclick = () => {
   if (remoteVideos.children.length === 0) {
     alert("No streams available yet. Wait for someone to share their screen.");
@@ -94,38 +84,97 @@ db.ref(`rooms/${roomId}/messages`).on('child_added', snapshot => {
   messages.scrollTop = messages.scrollHeight;
 });
 
-// WebRTC setup
+// WebRTC configuration
 const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
+// Add self to the room
+db.ref(`rooms/${roomId}/peers/${socketId}`).set(true);
+
+// Listen for new peers
 db.ref(`rooms/${roomId}/peers`).on('child_added', async snapshot => {
   const peerId = snapshot.key;
-  if (peerId === socketId) return;
-  if (peers[peerId]) return;
+  if (peerId === socketId || peers[peerId]) return;
+  await createOffer(peerId);
+});
+
+// Listen for offers
+db.ref(`rooms/${roomId}/offers/${socketId}`).on('child_added', async snapshot => {
+  const data = snapshot.val();
+  const fromId = snapshot.key;
+  if (peers[fromId]) return;
 
   const pc = new RTCPeerConnection(configuration);
-
-  // Add all local tracks
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-  // Handle incoming tracks
+  pc.ontrack = event => {
+    if (!document.getElementById('peer_' + fromId)) {
+      const container = document.createElement('div');
+      const label = document.createElement('p');
+      label.textContent = fromId + "'s Screen";
+      container.appendChild(label);
+      const vid = document.createElement('video');
+      vid.autoplay = true;
+      vid.srcObject = event.streams[0];
+      container.appendChild(vid);
+      container.id = 'peer_' + fromId;
+      remoteVideos.appendChild(container);
+    }
+  };
+
+  pc.onicecandidate = event => {
+    if (event.candidate) {
+      db.ref(`rooms/${roomId}/candidates/${fromId}`).push(event.candidate.toJSON());
+    }
+  };
+
+  await pc.setRemoteDescription({ type: data.type, sdp: data.sdp });
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  db.ref(`rooms/${roomId}/answers/${fromId}`).set({ sdp: answer.sdp, type: answer.type });
+
+  peers[fromId] = pc;
+});
+
+// Listen for answers
+db.ref(`rooms/${roomId}/answers/${socketId}`).on('child_added', async snapshot => {
+  const data = snapshot.val();
+  const fromId = snapshot.key;
+  const pc = peers[fromId];
+  if (pc && data) {
+    await pc.setRemoteDescription({ type: data.type, sdp: data.sdp });
+  }
+});
+
+// Listen for ICE candidates
+db.ref(`rooms/${roomId}/candidates/${socketId}`).on('child_added', snapshot => {
+  const data = snapshot.val();
+  const fromId = snapshot.key;
+  const pc = peers[fromId];
+  if (pc && data) {
+    pc.addIceCandidate(new RTCIceCandidate(data));
+  }
+});
+
+// Function to create offer
+async function createOffer(peerId) {
+  const pc = new RTCPeerConnection(configuration);
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
   pc.ontrack = event => {
     if (!document.getElementById('peer_' + peerId)) {
       const container = document.createElement('div');
       const label = document.createElement('p');
       label.textContent = peerId + "'s Screen";
       container.appendChild(label);
-
       const vid = document.createElement('video');
       vid.autoplay = true;
       vid.srcObject = event.streams[0];
       container.appendChild(vid);
-
       container.id = 'peer_' + peerId;
       remoteVideos.appendChild(container);
     }
   };
 
-  // Send ICE candidates
   pc.onicecandidate = event => {
     if (event.candidate) {
       db.ref(`rooms/${roomId}/candidates/${peerId}`).push(event.candidate.toJSON());
@@ -133,8 +182,8 @@ db.ref(`rooms/${roomId}/peers`).on('child_added', async snapshot => {
   };
 
   peers[peerId] = pc;
-});
 
-// Assign a random socketId
-const socketId = Math.floor(Math.random() * 1000000);
-db.ref(`rooms/${roomId}/peers/${socketId}`).set(true);
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  db.ref(`rooms/${roomId}/offers/${peerId}`).set({ sdp: offer.sdp, type: offer.type });
+}
