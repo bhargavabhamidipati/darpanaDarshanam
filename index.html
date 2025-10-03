@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Movie Share App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Movie Share App</h1>
+  <div id="video-container">
+    <video id="localVideo" autoplay muted></video>
+  </div>
+  <div id="remoteVideos"></div>
+  <button id="shareScreen">Share Screen</button>
+
+  <div id="chat-container">
+    <div id="messages"></div>
+    <input type="text" id="chatInput" placeholder="Type a message...">
+    <button id="sendBtn">Send</button>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
