@@ -24,22 +24,46 @@ let localStream;
 let peers = {};
 const roomId = 'defaultRoom';
 
-// Initialize local audio stream
+// Initialize local microphone stream
 async function initLocalStream() {
   localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
   localVideo.srcObject = localStream;
 }
 initLocalStream();
 
-// Share screen with audio
+// Share screen and merge with microphone
 shareBtn.onclick = async () => {
-  const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-  localVideo.srcObject = screenStream;
-  for (let peerId in peers) {
-    const senderVideo = peers[peerId].getSenders().find(s => s.track.kind === 'video');
-    if (senderVideo) senderVideo.replaceTrack(screenStream.getVideoTracks()[0]);
-    const senderAudio = peers[peerId].getSenders().find(s => s.track.kind === 'audio');
-    if (senderAudio) senderAudio.replaceTrack(screenStream.getAudioTracks()[0]);
+  try {
+    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    const combinedStream = new MediaStream();
+
+    // Add microphone tracks
+    localStream.getAudioTracks().forEach(track => combinedStream.addTrack(track));
+
+    // Add screen tracks (video + audio if available)
+    screenStream.getTracks().forEach(track => combinedStream.addTrack(track));
+
+    // Update local video
+    localVideo.srcObject = combinedStream;
+
+    // Replace tracks in all peer connections
+    for (let peerId in peers) {
+      const pc = peers[peerId];
+
+      // Replace audio
+      const audioSender = pc.getSenders().find(s => s.track.kind === 'audio');
+      if (audioSender) audioSender.replaceTrack(combinedStream.getAudioTracks()[0]);
+
+      // Replace video
+      const videoSender = pc.getSenders().find(s => s.track.kind === 'video');
+      if (videoSender) videoSender.replaceTrack(combinedStream.getVideoTracks()[0]);
+    }
+
+    // Update localStream reference
+    localStream = combinedStream;
+
+  } catch (err) {
+    console.error("Error sharing screen:", err);
   }
 };
 
@@ -60,7 +84,7 @@ db.ref(`rooms/${roomId}/messages`).on('child_added', snapshot => {
   messages.scrollTop = messages.scrollHeight;
 });
 
-// WebRTC logic
+// WebRTC setup
 const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 db.ref(`rooms/${roomId}/peers`).on('child_added', async snapshot => {
@@ -69,8 +93,11 @@ db.ref(`rooms/${roomId}/peers`).on('child_added', async snapshot => {
   if (peers[peerId]) return;
 
   const pc = new RTCPeerConnection(configuration);
+
+  // Add all local tracks
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
+  // Handle incoming tracks
   pc.ontrack = event => {
     if (!document.getElementById(peerId)) {
       const vid = document.createElement('video');
@@ -81,6 +108,7 @@ db.ref(`rooms/${roomId}/peers`).on('child_added', async snapshot => {
     }
   };
 
+  // Send ICE candidates
   pc.onicecandidate = event => {
     if (event.candidate) {
       db.ref(`rooms/${roomId}/candidates/${peerId}`).push(event.candidate.toJSON());
