@@ -16,6 +16,7 @@ const db = firebase.database();
 const localVideo = document.getElementById('localVideo');
 const remoteVideos = document.getElementById('remoteVideos');
 const shareBtn = document.getElementById('shareScreen');
+const viewStreamBtn = document.getElementById('viewStream');
 const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
 const messages = document.getElementById('messages');
@@ -40,7 +41,7 @@ shareBtn.onclick = async () => {
     // Add microphone tracks
     localStream.getAudioTracks().forEach(track => combinedStream.addTrack(track));
 
-    // Add screen tracks (video + audio if available)
+    // Add screen tracks (video + audio)
     screenStream.getTracks().forEach(track => combinedStream.addTrack(track));
 
     // Update local video
@@ -65,6 +66,15 @@ shareBtn.onclick = async () => {
   } catch (err) {
     console.error("Error sharing screen:", err);
   }
+};
+
+// View Stream Button – toggle remote videos
+viewStreamBtn.onclick = () => {
+  if (remoteVideos.children.length === 0) {
+    alert("No streams available yet. Wait for someone to share their screen.");
+    return;
+  }
+  remoteVideos.style.display = remoteVideos.style.display === 'none' ? 'block' : 'none';
 };
 
 // Chat logic
@@ -99,12 +109,19 @@ db.ref(`rooms/${roomId}/peers`).on('child_added', async snapshot => {
 
   // Handle incoming tracks
   pc.ontrack = event => {
-    if (!document.getElementById(peerId)) {
+    if (!document.getElementById('peer_' + peerId)) {
+      const container = document.createElement('div');
+      const label = document.createElement('p');
+      label.textContent = peerId + "'s Screen";
+      container.appendChild(label);
+
       const vid = document.createElement('video');
-      vid.id = peerId;
       vid.autoplay = true;
       vid.srcObject = event.streams[0];
-      remoteVideos.appendChild(vid);
+      container.appendChild(vid);
+
+      container.id = 'peer_' + peerId;
+      remoteVideos.appendChild(container);
     }
   };
 

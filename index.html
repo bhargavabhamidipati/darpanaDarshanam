@@ -8,20 +8,31 @@
 </head>
 <body>
   <h1>Movie Share App</h1>
+
+  <!-- Local Video -->
   <div id="video-container">
     <video id="localVideo" autoplay muted></video>
   </div>
-  <div id="remoteVideos"></div>
-  <button id="shareScreen">Share Screen</button>
 
+  <!-- Buttons -->
+  <button id="shareScreen">Share Screen</button>
+  <button id="viewStream">View Shared Screen</button>
+
+  <!-- Remote videos will appear here -->
+  <div id="remoteVideos" style="display:none;"></div>
+
+  <!-- Chat -->
   <div id="chat-container">
     <div id="messages"></div>
     <input type="text" id="chatInput" placeholder="Type a message...">
     <button id="sendBtn">Send</button>
   </div>
 
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+  <!-- App JS -->
   <script src="app.js"></script>
 </body>
 </html>
