@@ -60,7 +60,11 @@ shareBtn.onclick = async () => {
 
 // Toggle remote videos visibility
 viewStreamBtn.onclick = () => {
-  remoteVideos.style.display = (remoteVideos.style.display === 'none' || remoteVideos.style.display === '') ? 'flex' : 'none';
+  if (remoteVideos.children.length === 0) {
+    alert("No streams available yet. Wait for someone to share their screen.");
+    return;
+  }
+  remoteVideos.style.display = remoteVideos.style.display === 'none' ? 'block' : 'none';
 };
 
 // Chat logic
@@ -104,19 +108,14 @@ db.ref(`rooms/${roomId}/offers/${socketId}`).on('child_added', async snapshot =>
 
   pc.ontrack = event => {
     if (!document.getElementById('peer_' + fromId)) {
-      const placeholder = document.getElementById('placeholder');
-      if (placeholder) placeholder.remove();
-
       const container = document.createElement('div');
       const label = document.createElement('p');
       label.textContent = fromId + "'s Screen";
       container.appendChild(label);
-
       const vid = document.createElement('video');
       vid.autoplay = true;
       vid.srcObject = event.streams[0];
       container.appendChild(vid);
-
       container.id = 'peer_' + fromId;
       remoteVideos.appendChild(container);
     }
@@ -167,12 +166,10 @@ async function createOffer(peerId) {
       const label = document.createElement('p');
       label.textContent = peerId + "'s Screen";
       container.appendChild(label);
-
       const vid = document.createElement('video');
       vid.autoplay = true;
       vid.srcObject = event.streams[0];
       container.appendChild(vid);
-
       container.id = 'peer_' + peerId;
       remoteVideos.appendChild(container);
     }
